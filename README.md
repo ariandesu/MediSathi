@@ -1,7 +1,7 @@
 # MediSathi — মেডিসাথী
 
-> Repo: https://github.com/ariandesu/MedBuddy
-> Live: https://medbuddy-tau.vercel.app (demo data mode + live Muse AI)
+> Repo: https://github.com/ariandesu/MediSathi
+> Live: https://medisathi-clean.vercel.app (per-visitor demo accounts on MongoDB + live Muse AI)
 
 Plain-language health record helper for low health literacy (Bangla/English).
 Digitize prescriptions + lab reports, review extracted values, get simple explanations,
@@ -18,8 +18,8 @@ their own records, and print a doctor-ready report. It is explicitly **not** a d
 
 ## Demo
 
-- Repo: https://github.com/ariandesu/MedBuddy
-- Live: https://medbuddy-tau.vercel.app
+- Repo: https://github.com/ariandesu/MediSathi
+- Live: https://medisathi-clean.vercel.app
 - Default language: Bangla (`bn`), switchable in the header (cookie `medisathi-locale`)
 
 ### Test without uploading real data (demo mode)
@@ -42,7 +42,61 @@ All fixture data is synthetic and clearly watermarked **"SAMPLE — NOT REAL PAT
 
 ## Screenshots
 
-*(Add screenshots of dashboard, documents, review, timeline, and report here.)*
+Bangla UI, desktop + mobile. All data shown is synthetic (`SAMPLE — NOT REAL PATIENT DATA`).
+
+### Landing · Login · Sign up
+
+| Landing (desktop) | Landing (mobile) |
+|---|---|
+| ![Landing page on desktop](docs/screenshots/desktop/01-landing.jpg) | ![Landing page on mobile](docs/screenshots/mobile/01-landing.jpg) |
+
+| Login — 5 sample neighbors (desktop) | Login (mobile) |
+|---|---|
+| ![Login with demo profiles on desktop](docs/screenshots/desktop/02-login.jpg) | ![Login on mobile](docs/screenshots/mobile/02-login.jpg) |
+
+| Sign up (desktop) | Sign up (mobile) |
+|---|---|
+| ![Sign up on desktop](docs/screenshots/desktop/03-signup.jpg) | ![Sign up on mobile](docs/screenshots/mobile/03-signup.jpg) |
+
+### Home · Records · Review
+
+| Home (desktop) | Home (mobile) |
+|---|---|
+| ![Dashboard on desktop](docs/screenshots/desktop/04-dashboard.jpg) | ![Dashboard on mobile](docs/screenshots/mobile/04-dashboard.jpg) |
+
+| Documents (desktop) | Documents (mobile) |
+|---|---|
+| ![Documents on desktop](docs/screenshots/desktop/05-records-documents.jpg) | ![Documents on mobile](docs/screenshots/mobile/05-records-documents.jpg) |
+
+| Timeline (desktop) | Timeline (mobile) |
+|---|---|
+| ![Timeline on desktop](docs/screenshots/desktop/06-records-timeline.jpg) | ![Timeline on mobile](docs/screenshots/mobile/06-records-timeline.jpg) |
+
+| Side-by-side review (desktop) | Review (mobile) |
+|---|---|
+| ![Review page on desktop](docs/screenshots/desktop/07-review.jpg) | ![Review page on mobile](docs/screenshots/mobile/07-review.jpg) |
+
+### Check-in · Ask · Doctor report
+
+| Check-in (desktop) | Check-in (mobile) |
+|---|---|
+| ![Check-in on desktop](docs/screenshots/desktop/08-checkin.jpg) | ![Check-in on mobile](docs/screenshots/mobile/08-checkin.jpg) |
+
+| Check-in saved (desktop) | Check-in saved (mobile) |
+|---|---|
+| ![Check-in saved on desktop](docs/screenshots/desktop/09-checkin-saved.jpg) | ![Check-in saved on mobile](docs/screenshots/mobile/09-checkin-saved.jpg) |
+
+| Ask (desktop) | Ask (mobile) |
+|---|---|
+| ![Ask on desktop](docs/screenshots/desktop/10-ask.jpg) | ![Ask on mobile](docs/screenshots/mobile/10-ask.jpg) |
+
+| Doctor report (desktop) | Doctor report (mobile) |
+|---|---|
+| ![Doctor report on desktop](docs/screenshots/desktop/11-doctor-report.jpg) | ![Doctor report on mobile](docs/screenshots/mobile/11-doctor-report.jpg) |
+
+| Health summary (desktop) | Health summary (mobile) |
+|---|---|
+| ![Health summary on desktop](docs/screenshots/desktop/12-doctor-summary.jpg) | ![Health summary on mobile](docs/screenshots/mobile/12-doctor-summary.jpg) |
 
 ## Stack
 
