@@ -1,0 +1,354 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* MediSathi theme: "Mist". DESIGN.md is the source of truth.
+ * OKLCH values are checked conversions of the hex values listed there.
+ * Frost surfaces are translucent: anything sticky, or overlapping other content,
+ * must use bg-popover instead of bg-card, or what's behind it shows through.
+ */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  /* Latin glyphs come from Anek Latin; Bangla glyphs fall through to the next family. */
+  --font-sans: var(--font-anek-latin), var(--font-noto), "Noto Sans Bengali", system-ui, sans-serif;
+  --font-heading: var(--font-anek-latin), var(--font-anek), var(--font-noto), system-ui, sans-serif;
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-wash: var(--warning-wash);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-ink: var(--destructive-ink);
+  --color-destructive-wash: var(--destructive-wash);
+  --color-card-lead: var(--card-lead);
+  --color-bar: var(--bar);
+  --color-dock: var(--dock);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.4); /* existing cards use rounded-2xl: keep them at 24px */
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --mist-high: oklch(0.8923 0.0096 222.07); /* #D5DDE0 */
+  --mist: oklch(0.8309 0.0226 226.19); /* #B9CBD3 */
+  --mist-low: oklch(0.7887 0.0271 228.01); /* #A9BEC8 */
+
+  --background: var(--mist-high); /* Solid bars and docks. The page ground is on body. */
+  --foreground: oklch(0.1686 0.0089 224.11); /* Ink #0B1012 */
+  --card: oklch(1 0 0 / 46%); /* Frost */
+  --card-lead: oklch(1 0 0 / 78%); /* Frost on: the screen's lead card */
+  --card-foreground: var(--foreground);
+  --bar: oklch(0.9477 0.0085 225.08 / 86%); /* #E8EFF2: header and bottom nav */
+  --dock: oklch(0.8441 0.0216 227.58 / 88%); /* #BECFD7: sticky action bar */
+  --popover: oklch(1 0 0); /* Solid: dialogs, menus, and anything over other content */
+  --popover-foreground: var(--foreground);
+  --primary: var(--foreground);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(1 0 0 / 62%);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.1686 0.0089 224.11 / 8%);
+  --muted-foreground: oklch(0.3222 0.0254 230.14); /* Ink 2 #26363E: 6.5:1 on the darkest ground */
+  --accent: oklch(1 0 0 / 62%);
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(0.4884 0.1638 30.25); /* Alarm #A92C1E: urgent signs and delete only */
+  --destructive-foreground: oklch(1 0 0);
+  --destructive-ink: oklch(0.3562 0.1214 30.47); /* #6E180E: red text on bare Mist, where Alarm fails */
+  --destructive-wash: oklch(0.9175 0.0297 30.64); /* #F7DDD8 */
+  /* Haldi #E3A72F: fills/dots only (too light for text). Text uses Haldi ink. */
+  --warning: oklch(0.7659 0.1449 79.78);
+  --warning-foreground: oklch(0.3726 0.0779 77.31); /* #573A00 */
+  --warning-wash: oklch(0.9178 0.0636 87.27); /* #F6E2B4 */
+  --border: oklch(1 0 0 / 62%); /* Frost edge */
+  --rule: oklch(0.1686 0.0089 224.11 / 10%); /* Dividers inside cards */
+  --input: oklch(0.1686 0.0089 224.11 / 28%);
+  --ring: var(--foreground);
+  --chart-1: oklch(0.4545 0.0856 228.51); /* Lagoon #0B5F7C: data only */
+  --chart-2: var(--warning);
+  --chart-3: var(--muted-foreground);
+  --chart-4: oklch(0.4048 0.0272 229.87); /* Ink 3 #3A4C55 */
+  --chart-5: var(--destructive);
+  --radius: 1rem;
+  --sidebar: var(--mist-high);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+/* Light theme only: no dark mode toggle. */
+
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --card: oklch(0.9094 0.0121 223.53); /* Frost flattened over Mist, #D9E3E7 */
+    --card-lead: oklch(0.9644 0.0045 214.33); /* #F0F4F5 */
+    --secondary: oklch(0.9356 0.0085 225.09); /* #E4EBEE */
+    --accent: var(--secondary);
+    --bar: oklch(0.9477 0.0085 225.08);
+    --dock: oklch(0.8441 0.0216 227.58);
+    --border: oklch(0.9644 0.0045 214.33);
+  }
+}
+
+@media print {
+  :root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0 0 0);
+    --muted-foreground: oklch(0 0 0);
+    --card: oklch(1 0 0);
+    --card-lead: oklch(1 0 0);
+    --secondary: oklch(1 0 0);
+    --muted: oklch(1 0 0);
+    --border: oklch(0.8 0 0);
+    --rule: oklch(0.8 0 0);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  /* The frost edge is white, which vanishes inside a frost card. */
+  .divide-y > *,
+  tr,
+  li.border-b {
+    border-color: var(--rule);
+  }
+  html {
+    /* 17px mobile base text */
+    font-size: 17px;
+    @apply font-sans;
+  }
+  body {
+    @apply text-foreground;
+    /* html is viewport height, so past the first screen the ground stays Mist low. */
+    background: var(--mist-low) linear-gradient(180deg, var(--mist-high) 0, var(--mist) 340px, var(--mist-low) 100%) no-repeat;
+  }
+  /* Large tap targets for low-literacy / mobile users (≥48px) */
+  button:not([role="checkbox"]):not([role="radio"]):not([role="switch"]):not([role="tab"]),
+  a[role="button"],
+  input[type="button"],
+  input[type="submit"] {
+    min-height: 48px;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-heading);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+  /* Bangla line height */
+  html[lang="bn"] {
+    line-height: 1.65;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: oklch(1 0 0);
+    font-size: 12pt;
+  }
+  main {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  .print-h2 {
+    margin: 12pt 0 4pt;
+    padding-bottom: 2pt;
+    border-bottom: 1pt solid black;
+    font-size: 13pt;
+    font-weight: 600;
+    break-after: avoid;
+  }
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10pt;
+  }
+  .print-table th {
+    padding: 2pt 6pt 2pt 0;
+    border-bottom: 0.75pt solid black;
+    font-weight: 600;
+    text-align: left;
+    vertical-align: bottom;
+  }
+  .print-table th.text-right {
+    text-align: right;
+  }
+  .print-table td {
+    padding: 2pt 6pt 2pt 0;
+    border-bottom: 0.5pt solid oklch(0.8 0 0);
+    vertical-align: top;
+  }
+  .print-table tr {
+    break-inside: avoid;
+  }
+}
+
+@page {
+  size: A4;
+  margin: 14mm;
+}
+
+/* Haldi highlighter over a value on the paper (review page + landing). */
+.paper-highlight {
+  position: absolute;
+  border-radius: 4px;
+  background: color-mix(in oklch, var(--warning) 45%, transparent);
+  outline: 2px solid var(--warning);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  transition: left 0.25s ease, top 0.25s ease, width 0.25s ease, height 0.25s ease;
+}
+
+/* The orb: see components/orb.tsx. The only glow, and one of two decorative gradients. */
+.orb {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  overflow: hidden;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 26%, #e9fcff 0, #8ce8f6 12%, #22b4d9 36%, #0b6c93 66%, #062f4c 100%);
+  box-shadow: 0 0 44px 10px rgb(25 181 216 / 55%), inset 0 0 26px rgb(255 255 255 / 40%);
+}
+
+.orb-halo {
+  background: radial-gradient(circle at 50% 50%, rgb(25 181 216 / 50%) 0, rgb(25 181 216 / 16%) 34%, transparent 62%);
+}
+
+.orb-sheet {
+  container-type: size;
+  overflow: hidden;
+  position: absolute;
+  inset: 23% 29%;
+  display: flex;
+  flex-direction: column;
+  gap: 8%;
+  padding: 9% 6%;
+  border-radius: 5px;
+  background: oklch(1 0 0 / 93%);
+  transform: rotate(-8deg);
+}
+
+.orb-sheet i {
+  display: block;
+  height: 6%;
+  min-height: 2px;
+  border-radius: 2px;
+  background: oklch(0.1686 0.0089 224.11 / 34%);
+}
+
+.orb-sheet i.orb-lit {
+  height: 12%;
+  min-height: 4px;
+  background: var(--warning);
+}
+
+/* While AI works: a line sweeps down the paper and the orb breathes. */
+.orb-scan {
+  display: none;
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--chart-1);
+  box-shadow: 0 0 6px 1px rgb(25 181 216 / 80%);
+}
+
+.orb[data-working] .orb-scan {
+  display: block;
+  animation: orb-scan 1.6s ease-in-out infinite alternate;
+}
+
+.orb[data-working] {
+  animation: orb-breathe 2.4s ease-in-out infinite alternate;
+}
+
+.orb[data-working] .orb-lit {
+  animation: orb-reading 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes orb-scan {
+  to { transform: translateY(100cqh); }
+}
+
+@keyframes orb-breathe {
+  to { transform: scale(1.04); }
+}
+
+@keyframes orb-reading {
+  from { opacity: 0.45; }
+}
+
+.landing-rise {
+  animation: landing-rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.landing-swipe {
+  transform-origin: left center;
+  animation: landing-swipe 0.5s 0.7s ease-out both;
+}
+
+@keyframes landing-rise {
+  from { opacity: 0; transform: translateY(14px); }
+}
+
+@keyframes landing-swipe {
+  from { transform: scaleX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paper-highlight { transition: none; }
+  .landing-rise,
+  .landing-swipe,
+  .orb[data-working],
+  .orb[data-working] .orb-scan,
+  .orb[data-working] .orb-lit { animation: none; }
+}

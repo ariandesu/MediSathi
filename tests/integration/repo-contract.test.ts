@@ -1,0 +1,412 @@
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { MongoMemoryServer } from "mongodb-memory-server";
+import { MemoryRepository } from "@/server/repo/memory";
+import { MongoRepository } from "@/server/repo/mongo";
+import type {
+  Repository,
+  CreateExtractionInput,
+  WellnessUpsertInput,
+} from "@/server/repo/types";
+import type { ExtractedField } from "@/lib/schemas";
+
+function field(overrides: Partial<ExtractedField> = {}): ExtractedField {
+  return {
+    key: "hemoglobin",
+    label: "Hemoglobin",
+    rawValue: "13.5",
+    numericValue: 13.5,
+    unit: "g/dL",
+    referenceRangeRaw: "13.0-17.0",
+    page: 1,
+    sources: { muse: "13.5", ocr: "13.5" },
+    agreement: "match",
+    confidence: 0.98,
+    needsReview: false,
+    userEdited: false,
+    ...overrides,
+  };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function runContractSuite(
+  name: string,
+  makeRepo: () => Promise<{ repo: Repository; cleanup: () => Promise<void> }>
+) {
+  describe(`Repository contract: ${name}`, () => {
+    let repo: Repository;
+    let cleanup: () => Promise<void>;
+    let userA = "";
+    let userB = "";
+
+    beforeAll(async () => {
+      const r = await makeRepo();
+      repo = r.repo;
+      cleanup = r.cleanup;
+      const a = await repo.createUser({
+        email: "a@example.com",
+        passwordHash: "hash-a",
+        locale: "en",
+      });
+      const b = await repo.createUser({
+        email: "b@example.com",
+        passwordHash: "hash-b",
+        locale: "bn",
+      });
+      userA = a.id;
+      userB = b.id;
+    }, 180000);
+
+    afterAll(async () => {
+      await cleanup();
+    });
+
+    it("users: create/get and unique email", async () => {
+      const u = await repo.getUserByEmail("A@EXAMPLE.COM");
+      expect(u?.id).toBe(userA);
+      expect(await repo.getUserById(userB)).toMatchObject({
+        email: "b@example.com",
+      });
+      expect(await repo.getUserByEmail("missing@example.com")).toBeNull();
+      await expect(
+        repo.createUser({
+          email: "a@example.com",
+          passwordHash: "x",
+          locale: "en",
+        })
+      ).rejects.toThrow();
+    });
+
+    it("documents: CRUD + ownership + newest-first list", async () => {
+      const d1 = await repo.createDocument({
+        userId: userA,
+        fileName: "a1.jpg",
+        mimeType: "image/jpeg",
+        sizeBytes: 10,
+        checksum: "c1",
+        fileRef: "f-a1",
+      });
+      expect(d1.status).toBe("uploaded");
+      await sleep(15);
+      const d2 = await repo.createDocument({
+        userId: userA,
+        fileName: "a2.jpg",
+        mimeType: "image/jpeg",
+        sizeBytes: 20,
+        checksum: "c2",
+        fileRef: "f-a2",
+      });
+      await sleep(15);
+      await repo.createDocument({
+        userId: userB,
+        fileName: "b1.jpg",
+        mimeType: "image/jpeg",
+        sizeBytes: 30,
+        checksum: "c3",
+        fileRef: "f-b1",
+      });
+      expect(await repo.getDocument(userA, d1.id)).toMatchObject({
+        fileName: "a1.jpg",
+      });
+      expect(await repo.getDocument(userB, d1.id)).toBeNull();
+      expect(await repo.getDocument(userA, "nope")).toBeNull();
+      const list = await repo.listDocuments(userA);
+      expect(list.map((d) => d.id)).toEqual([d2.id, d1.id]);
+      const updated = await repo.updateDocumentStatus(
+        userA,
+        d1.id,
+        "needs_review"
+      );
+      expect(updated?.status).toBe("needs_review");
+      expect(await repo.updateDocumentStatus(userB, d1.id, "failed")).toBeNull();
+    });
+
+    it("files: roundtrip + ownership", async () => {
+      const bytes = Buffer.from([0xff, 0xd8, 0xff, 0x00, 0x01]);
+      await repo.storeFile(userA, "f-x", bytes, "image/jpeg", "x.jpg");
+      const got = await repo.getFile(userA, "f-x");
+      expect(got?.mimeType).toBe("image/jpeg");
+      expect(got?.fileName).toBe("x.jpg");
+      expect(Buffer.compare(got!.bytes, bytes)).toBe(0);
+      expect(await repo.getFile(userB, "f-x")).toBeNull();
+      expect(await repo.getFile(userA, "missing")).toBeNull();
+    });
+
+    it("extractions: CRUD + ownership + by-document", async () => {
+      const input: CreateExtractionInput = {
+        userId: userA,
+        documentId: "doc-1",
+        documentType: "lab_report",
+        documentDateRaw: "10/10/2026",
+        documentDate: "2026-10-10",
+        fields: [field()],
+        ocrText: "hello",
+      };
+      const ext = await repo.createExtraction(input);
+      expect(await repo.getExtraction(userA, ext.id)).toMatchObject({
+        documentId: "doc-1",
+      });
+      expect(await repo.getExtraction(userB, ext.id)).toBeNull();
+      expect(
+        await repo.getExtractionByDocument(userA, "doc-1")
+      ).toMatchObject({ id: ext.id });
+      expect(await repo.getExtractionByDocument(userB, "doc-1")).toBeNull();
+      const updated = await repo.updateExtractionFields(userA, ext.id, [
+        field({ key: "wbc", userEdited: true }),
+      ]);
+      expect(updated?.fields[0].key).toBe("wbc");
+      expect(updated?.fields[0].userEdited).toBe(true);
+      expect(
+        await repo.updateExtractionFields(userB, ext.id, [field()])
+      ).toBeNull();
+
+      expect(ext.dateNeedsReview).toBe(false);
+      const dated = await repo.updateExtractionDate(userA, ext.id, "2026-03-11", true);
+      expect(dated).toMatchObject({ documentDate: "2026-03-11", dateNeedsReview: true });
+      expect(await repo.getExtraction(userA, ext.id)).toMatchObject({ documentDate: "2026-03-11" });
+      expect(await repo.updateExtractionDate(userB, ext.id, null, false)).toBeNull();
+      expect(await repo.getExtraction(userA, ext.id)).toMatchObject({ documentDate: "2026-03-11" });
+    });
+
+    it("deleteExpiredDemoUsers: removes old demo accounts and their data, nothing else", async () => {
+      const seedOwner = async (email: string) => {
+        const u = await repo.createUser({ email, passwordHash: "h", locale: "en" });
+        await repo.storeFile(u.id, `file-${u.id}`, Buffer.from("x"), "image/jpeg", "a.jpg");
+        const doc = await repo.createDocument({
+          userId: u.id,
+          fileName: "a.jpg",
+          mimeType: "image/jpeg",
+          sizeBytes: 1,
+          checksum: `c-${u.id}`,
+          fileRef: `file-${u.id}`,
+        });
+        await repo.createExtraction({
+          userId: u.id,
+          documentId: doc.id,
+          documentType: "other",
+          documentDateRaw: null,
+          documentDate: null,
+          fields: [],
+          ocrText: "",
+        });
+        await repo.createMedicalRecord({
+          userId: u.id,
+          documentId: doc.id,
+          recordType: "other",
+          recordDate: null,
+          observations: [],
+          medications: [],
+        });
+        await repo.upsertWellnessEntry(u.id, "2026-01-01", { sleepHours: 7 });
+        await repo.upsertDeviceReading(u.id, "2026-01-01", { kind: "pulse", value: 72 });
+        await repo.createHealthSummary({
+          userId: u.id,
+          coveredFrom: "",
+          coveredTo: "",
+          payload: { summary: "s", observedChanges: [], missingInformation: [], questionsForDoctor: [], limitations: [] },
+          sourceRecordIds: [],
+          model: "m",
+          isSample: true,
+        });
+        return { user: u, doc };
+      };
+      const demo = await seedOwner("demo-0a0b0c0d@medisathi.app");
+      const lookalike = await seedOwner("demo-0a0b0c0d@example.test");
+      const unrelated = await seedOwner("not-a-demo@medisathi.app");
+
+      // Younger than the cutoff: kept.
+      expect(await repo.deleteExpiredDemoUsers(new Date(Date.now() - 60_000), 25)).toBe(0);
+      expect(await repo.getUserById(demo.user.id)).not.toBeNull();
+
+      expect(await repo.deleteExpiredDemoUsers(new Date(Date.now() + 60_000), 25)).toBe(1);
+      expect(await repo.getUserById(demo.user.id)).toBeNull();
+      expect(await repo.getUserByEmail(demo.user.email)).toBeNull();
+      expect(await repo.getDocument(demo.user.id, demo.doc.id)).toBeNull();
+      expect(await repo.getFile(demo.user.id, `file-${demo.user.id}`)).toBeNull();
+      expect(await repo.getExtractionByDocument(demo.user.id, demo.doc.id)).toBeNull();
+      expect(await repo.listMedicalRecords(demo.user.id)).toHaveLength(0);
+      expect(await repo.listWellnessEntries(demo.user.id, "2026-01-01", "2026-01-01")).toHaveLength(0);
+      expect(await repo.listDeviceReadings(demo.user.id)).toHaveLength(0);
+      expect(await repo.getLatestHealthSummary(demo.user.id)).toBeNull();
+
+      for (const kept of [lookalike, unrelated]) {
+        expect(await repo.getUserById(kept.user.id)).not.toBeNull();
+        expect(await repo.getFile(kept.user.id, `file-${kept.user.id}`)).not.toBeNull();
+        expect(await repo.listMedicalRecords(kept.user.id)).toHaveLength(1);
+      }
+    });
+
+    it("deleteExpiredDemoUsers: respects the batch limit", async () => {
+      await repo.createUser({ email: "demo-11111111@medisathi.app", passwordHash: "h", locale: "en" });
+      await repo.createUser({ email: "demo-22222222@medisathi.app", passwordHash: "h", locale: "en" });
+      const future = new Date(Date.now() + 60_000);
+      expect(await repo.deleteExpiredDemoUsers(future, 1)).toBe(1);
+      expect(await repo.deleteExpiredDemoUsers(future, 25)).toBe(1);
+      expect(await repo.deleteExpiredDemoUsers(future, 25)).toBe(0);
+    });
+
+    it("records: CRUD + date filter + ownership", async () => {
+      const r1 = await repo.createMedicalRecord({
+        userId: userA,
+        documentId: "doc-1",
+        recordType: "lab_report",
+        recordDate: "2026-10-01",
+        observations: [
+          {
+            name: "Hb",
+            rawValue: "13.5",
+            numericValue: 13.5,
+            unit: "g/dL",
+            referenceRangeRaw: null,
+            sourceDocumentId: "doc-1",
+            page: 1,
+          },
+        ],
+        medications: [],
+      });
+      await repo.createMedicalRecord({
+        userId: userA,
+        documentId: "doc-2",
+        recordType: "prescription",
+        recordDate: "2026-10-20",
+        observations: [],
+        medications: [
+          {
+            nameAsWritten: "Napa",
+            doseAsWritten: "1",
+            frequencyAsWritten: "daily",
+            durationAsWritten: "7d",
+            uncertain: false,
+          },
+        ],
+      });
+      await repo.createMedicalRecord({
+        userId: userB,
+        documentId: "doc-3",
+        recordType: "other",
+        recordDate: "2026-10-10",
+        observations: [],
+        medications: [],
+      });
+      expect(await repo.getMedicalRecord(userA, r1.id)).toMatchObject({
+        recordDate: "2026-10-01",
+      });
+      expect(await repo.getMedicalRecord(userB, r1.id)).toBeNull();
+      const all = await repo.listMedicalRecords(userA);
+      expect(all).toHaveLength(2);
+      expect(all[0].recordDate).toBe("2026-10-01");
+      const filtered = await repo.listMedicalRecords(userA, {
+        from: "2026-10-15",
+        to: "2026-10-25",
+      });
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].recordType).toBe("prescription");
+    });
+
+    it("readings: one per kind per day, newest first, scoped to the owner", async () => {
+      const first = await repo.upsertDeviceReading(userA, "2026-11-01", { kind: "blood_pressure", value: 150, value2: 95 });
+      const fixed = await repo.upsertDeviceReading(userA, "2026-11-01", { kind: "blood_pressure", value: 130, value2: 85 });
+      expect(fixed.id).toBe(first.id);
+      expect([fixed.value, fixed.value2]).toEqual([130, 85]);
+      await repo.upsertDeviceReading(userA, "2026-11-03", { kind: "pulse", value: 72 });
+      await repo.upsertDeviceReading(userB, "2026-11-02", { kind: "pulse", value: 90 });
+
+      const all = await repo.listDeviceReadings(userA);
+      expect(all.map((r) => r.date)).toEqual(["2026-11-03", "2026-11-01"]);
+      expect(all[0].value2).toBeUndefined();
+      expect(await repo.listDeviceReadings(userA, { from: "2026-11-02", to: "2026-11-30" })).toHaveLength(1);
+
+      expect(await repo.deleteDeviceReading(userB, first.id)).toBe(false);
+      expect(await repo.listDeviceReadings(userA)).toHaveLength(2);
+      expect(await repo.deleteDeviceReading(userA, first.id)).toBe(true);
+      expect(await repo.listDeviceReadings(userA)).toHaveLength(1);
+    });
+
+    it("wellness: null clears a value, a missing key keeps it", async () => {
+      await repo.upsertWellnessEntry(userA, "2026-11-01", { sleepHours: 7, energy: 3 });
+      const updated = await repo.upsertWellnessEntry(userA, "2026-11-01", { sleepHours: null });
+      expect(updated.sleepHours).toBeUndefined();
+      expect(updated.energy).toBe(3);
+      const [listed] = await repo.listWellnessEntries(userA, "2026-11-01", "2026-11-01");
+      expect(listed.sleepHours).toBeUndefined();
+      expect(listed.energy).toBe(3);
+    });
+
+    it("wellness: upsert + range + ownership", async () => {
+      const w1: WellnessUpsertInput = { sleepHours: 7, energy: 3 };
+      const created = await repo.upsertWellnessEntry(userA, "2026-10-01", w1);
+      expect(created.sleepHours).toBe(7);
+      const updated = await repo.upsertWellnessEntry(userA, "2026-10-01", {
+        waterGlasses: 8,
+      });
+      expect(updated.id).toBe(created.id);
+      expect(updated.sleepHours).toBe(7);
+      expect(updated.waterGlasses).toBe(8);
+      await repo.upsertWellnessEntry(userA, "2026-10-03", { energy: 2 });
+      await repo.upsertWellnessEntry(userB, "2026-10-02", { energy: 4 });
+      const list = await repo.listWellnessEntries(
+        userA,
+        "2026-10-01",
+        "2026-10-31"
+      );
+      expect(list.map((w) => w.date)).toEqual(["2026-10-01", "2026-10-03"]);
+      const empty = await repo.listWellnessEntries(
+        userA,
+        "2026-09-01",
+        "2026-09-30"
+      );
+      expect(empty).toHaveLength(0);
+    });
+
+    it("summaries: versioning + latest + ownership", async () => {
+      const base = {
+        coveredFrom: "2026-10-01",
+        coveredTo: "2026-10-20",
+        payload: {
+          summary: "s",
+          observedChanges: [],
+          missingInformation: [],
+          questionsForDoctor: [],
+          limitations: [],
+        },
+        sourceRecordIds: [] as string[],
+        model: "fixture",
+        isSample: true,
+      };
+      const v1 = await repo.createHealthSummary({ userId: userA, ...base });
+      expect(v1.version).toBe(1);
+      await sleep(15);
+      const v2 = await repo.createHealthSummary({ userId: userA, ...base });
+      expect(v2.version).toBe(2);
+      await repo.createHealthSummary({ userId: userB, ...base });
+      expect(await repo.getHealthSummary(userA, v1.id)).toMatchObject({
+        version: 1,
+      });
+      expect(await repo.getHealthSummary(userB, v1.id)).toBeNull();
+      expect(await repo.getLatestHealthSummary(userA)).toMatchObject({
+        version: 2,
+      });
+      const list = await repo.listHealthSummaries(userA);
+      expect(list.map((s) => s.version)).toEqual([2, 1]);
+    });
+  });
+}
+
+runContractSuite("MemoryRepository", async () => ({
+  repo: new MemoryRepository({ seed: false }),
+  cleanup: async () => {},
+}));
+
+runContractSuite("MongoRepository", async () => {
+  const mongod = await MongoMemoryServer.create();
+  const repo = new MongoRepository(mongod.getUri(), "contract_test");
+  return {
+    repo,
+    cleanup: async () => {
+      await repo.close();
+      await mongod.stop();
+    },
+  };
+});

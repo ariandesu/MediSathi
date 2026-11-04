@@ -1,0 +1,90 @@
+import { randomUUID } from "node:crypto";
+import { after } from "next/server";
+import { z } from "zod";
+import bcrypt from "bcryptjs";
+import { DEMO_RETENTION_MS } from "@/lib/demo";
+import { getRepo } from "@/server/repo/index";
+import { seedDemoData } from "@/server/demo-seed";
+import { isDemoProfileId } from "@/server/demo-profiles";
+import { clientIp, rateLimitCheck } from "@/server/rate-limit";
+import { isDemoDataMode } from "@/server/env";
+import { DEMO_EMAIL, DEMO_PASSWORD } from "@/server/repo/memory";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+// Demo account creation: 30 per hour per client IP (judges on shared venue Wi-Fi
+// share one IP, so keep headroom). Keyed per IP so one
+// visitor (or bot) can never lock the demo out for everyone else.
+const DEMO_LIMIT = 30;
+
+const demoStartSchema = z.object({
+  profile: z.string().optional(),
+});
+
+// Each new demo clears a few expired ones, after the response so it adds no wait.
+const DEMO_CLEANUP_BATCH = 25;
+
+function removeOldDemoAccountsLater() {
+  try {
+    after(() =>
+      getRepo()
+        .deleteExpiredDemoUsers(new Date(Date.now() - DEMO_RETENTION_MS), DEMO_CLEANUP_BATCH)
+        .catch(() => {})
+    );
+  } catch {
+    // Outside a request scope (route tests): nothing to schedule on.
+  }
+}
+
+export async function POST(req: Request) {
+  // No database (in-memory mode): on serverless hosts like Vercel each request
+  // can land on a different instance with its own memory, so a freshly created
+  // account is unknown to the instance that handles the login (→ 401). Every
+  // instance seeds the same built-in demo account with fixed ids, so hand that
+  // out instead. Nothing is created, so no rate limit is needed.
+  if (isDemoDataMode()) {
+    return Response.json(
+      { email: DEMO_EMAIL, password: DEMO_PASSWORD, shared: true },
+      { status: 200 }
+    );
+  }
+
+  // With MongoDB: a private, freshly seeded demo account per visitor.
+  let profile: string | undefined;
+  try {
+    const body = await req.json().catch(() => ({}));
+    const parsed = demoStartSchema.safeParse(body);
+    if (parsed.success && parsed.data.profile && isDemoProfileId(parsed.data.profile)) {
+      profile = parsed.data.profile;
+    }
+  } catch {
+    profile = undefined;
+  }
+  const repo = getRepo();
+  const email = `demo-${randomUUID().slice(0, 8)}@medisathi.app`;
+  const password = randomUUID();
+  // Overlap CPU (bcrypt) with I/O (rate-limit check) — saves ~200ms.
+  const [passwordHash, rateLimit] = await Promise.all([
+    bcrypt.hash(password, 10),
+    rateLimitCheck(`ip:${clientIp(req)}`, "demo-start", DEMO_LIMIT),
+  ]);
+  if (!rateLimit.allowed) {
+    return Response.json(
+      { error: "Rate limit exceeded. Try again later." },
+      { status: 429 }
+    );
+  }
+
+  const user = await repo.createUser({
+    email,
+    passwordHash,
+    locale: "bn",
+  });
+
+  await seedDemoData(repo, user.id, profile);
+
+  removeOldDemoAccountsLater();
+
+  return Response.json({ email, password, profile: profile ?? "classic" }, { status: 201 });
+}

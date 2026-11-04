@@ -1,0 +1,512 @@
+import { randomUUID } from "node:crypto";
+import bcrypt from "bcryptjs";
+import { isDemoAccountEmail } from "@/lib/demo";
+import type {
+  User,
+  Document,
+  DocumentStatus,
+  Extraction,
+  ExtractedField,
+  MedicalRecord,
+  WellnessEntry,
+  DeviceReading,
+  ReadingInput,
+  HealthSummary,
+} from "@/lib/schemas";
+import type {
+  Repository,
+  CreateUserInput,
+  CreateDocumentInput,
+  StoredFile,
+  CreateExtractionInput,
+  CreateMedicalRecordInput,
+  WellnessUpsertInput,
+  CreateHealthSummaryInput,
+} from "./types";
+import { daysAgoDate, daysAgoISODate } from "@/server/dates";
+import { samplePaperSize, withSampleBoxes } from "@/server/sample-papers";
+import documentsFixture from "../../../fixtures/documents.json";
+import extractionsFixture from "../../../fixtures/extractions.json";
+import recordsFixture from "../../../fixtures/records.json";
+import wellnessFixture from "../../../fixtures/wellness.json";
+import summaryFixture from "../../../fixtures/summary.json";
+
+export const DEMO_USER_ID = "demo_user_001";
+export const DEMO_EMAIL = "demo@medisathi.app";
+export const DEMO_PASSWORD = "demo1234";
+
+function clone<T>(value: T): T {
+  return structuredClone(value);
+}
+
+export class MemoryRepository implements Repository {
+  private users = new Map<string, User>();
+  private usersByEmail = new Map<string, User>();
+  private documents = new Map<string, Document>();
+  private files = new Map<string, StoredFile & { userId: string }>();
+  private extractions = new Map<string, Extraction>();
+  private records = new Map<string, MedicalRecord>();
+  private wellness = new Map<string, WellnessEntry>();
+  private readings = new Map<string, DeviceReading>();
+  private summaries = new Map<string, HealthSummary>();
+  private readonly demoUserId: string;
+
+  constructor(opts?: { seed?: boolean; userId?: string }) {
+    this.demoUserId = opts?.userId ?? DEMO_USER_ID;
+    if (opts?.seed !== false) this.seed();
+  }
+
+  private seed(): void {
+    const now = new Date();
+    const demoUser: User = {
+      id: this.demoUserId,
+      email: DEMO_EMAIL,
+      passwordHash: bcrypt.hashSync(DEMO_PASSWORD, 10),
+      locale: "bn",
+      createdAt: daysAgoDate(30),
+    };
+    this.users.set(demoUser.id, demoUser);
+    this.usersByEmail.set(demoUser.email, demoUser);
+
+    for (const d of documentsFixture) {
+      const doc: Document = {
+        id: d.id,
+        userId: this.demoUserId,
+        fileName: d.fileName,
+        mimeType: d.mimeType,
+        sizeBytes: samplePaperSize(d.fileRef) ?? d.sizeBytes,
+        checksum: d.checksum,
+        status: d.status as DocumentStatus,
+        createdAt: daysAgoDate(d.daysAgo),
+        fileRef: d.fileRef,
+      };
+      this.documents.set(doc.id, doc);
+      this.files.set(`${DEMO_USER_ID}:${d.fileRef}`, {
+        userId: DEMO_USER_ID,
+        bytes: Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+          "base64"
+        ),
+        mimeType: d.mimeType,
+        fileName: d.fileName,
+      });
+    }
+
+    for (const e of extractionsFixture) {
+      const ext: Extraction = {
+        id: e.id,
+        documentId: e.documentId,
+        userId: DEMO_USER_ID,
+        documentType: e.documentType as Extraction["documentType"],
+        documentDateRaw: e.documentDateRaw,
+        documentDate:
+          e.documentDateDaysAgo === null
+            ? null
+            : daysAgoISODate(e.documentDateDaysAgo),
+        dateNeedsReview: e.documentDateDaysAgo === null,
+        fields: withSampleBoxes(
+          documentsFixture.find((d) => d.id === e.documentId)?.fileRef ?? "",
+          e.fields as ExtractedField[]
+        ),
+        ocrText: e.ocrText,
+        createdAt: daysAgoDate(e.createdDaysAgo),
+      };
+      this.extractions.set(ext.id, ext);
+    }
+
+    for (const r of recordsFixture) {
+      const rec: MedicalRecord = {
+        id: r.id,
+        userId: this.demoUserId,
+        documentId: r.documentId,
+        recordType: r.recordType as MedicalRecord["recordType"],
+        recordDate: daysAgoISODate(r.recordDateDaysAgo),
+        observations: r.observations as MedicalRecord["observations"],
+        medications: r.medications as MedicalRecord["medications"],
+        confirmedAt: daysAgoDate(r.confirmedDaysAgo),
+      };
+      this.records.set(rec.id, rec);
+    }
+
+    for (const w of wellnessFixture) {
+      const entry: WellnessEntry = {
+        id: `well_demo_${w.daysAgo}`,
+        userId: this.demoUserId,
+        date: daysAgoISODate(w.daysAgo),
+        sleepHours: w.sleepHours,
+        waterGlasses: w.waterGlasses,
+        activityMinutes: w.activityMinutes,
+        energy: w.energy as WellnessEntry["energy"],
+        symptomLevel: w.symptomLevel as WellnessEntry["symptomLevel"],
+        symptoms: w.symptoms,
+        note: w.note,
+      };
+      this.wellness.set(`${this.demoUserId}:${entry.date}`, entry);
+    }
+
+    const summary: HealthSummary = {
+      id: "sum_demo_001",
+      userId: this.demoUserId,
+      version: 1,
+      generatedAt: now,
+      coveredFrom: daysAgoISODate(summaryFixture.coveredFromDaysAgo),
+      coveredTo: daysAgoISODate(summaryFixture.coveredToDaysAgo),
+      payload: summaryFixture.payload as HealthSummary["payload"],
+      sourceRecordIds: summaryFixture.sourceRecordIds,
+      model: summaryFixture.model,
+      isSample: summaryFixture.isSample,
+    };
+    this.summaries.set(summary.id, summary);
+  }
+
+  async createUser(input: CreateUserInput): Promise<User> {
+    const email = input.email.toLowerCase();
+    if (this.usersByEmail.has(email)) throw new Error("User already exists");
+    const user: User = {
+      id: randomUUID(),
+      email,
+      passwordHash: input.passwordHash,
+      locale: input.locale,
+      createdAt: new Date(),
+    };
+    this.users.set(user.id, user);
+    this.usersByEmail.set(email, user);
+    return clone(user);
+  }
+
+  async deleteExpiredDemoUsers(before: Date, limit: number): Promise<number> {
+    const expired = [...this.users.values()]
+      .filter((u) => isDemoAccountEmail(u.email) && u.createdAt < before)
+      .slice(0, limit);
+    for (const u of expired) {
+      for (const store of [this.documents, this.files, this.extractions, this.records, this.wellness, this.readings, this.summaries]) {
+        for (const [key, row] of store as Map<string, { userId: string }>) {
+          if (row.userId === u.id) store.delete(key);
+        }
+      }
+      this.users.delete(u.id);
+      this.usersByEmail.delete(u.email);
+    }
+    return expired.length;
+  }
+
+  async getUserByEmail(email: string): Promise<User | null> {
+    return clone(this.usersByEmail.get(email.toLowerCase()) ?? null);
+  }
+
+  async getUserById(id: string): Promise<User | null> {
+    return clone(this.users.get(id) ?? null);
+  }
+
+  async createDocument(input: CreateDocumentInput): Promise<Document> {
+    const doc: Document = {
+      id: randomUUID(),
+      userId: input.userId,
+      fileName: input.fileName,
+      mimeType: input.mimeType,
+      sizeBytes: input.sizeBytes,
+      checksum: input.checksum,
+      status: "uploaded",
+      createdAt: new Date(),
+      fileRef: input.fileRef,
+    };
+    this.documents.set(doc.id, doc);
+    return clone(doc);
+  }
+
+  async getDocument(userId: string, id: string): Promise<Document | null> {
+    const doc = this.documents.get(id);
+    if (!doc || doc.userId !== userId) return null;
+    return clone(doc);
+  }
+
+  async listDocuments(userId: string): Promise<Document[]> {
+    return [...this.documents.values()]
+      .filter((d) => d.userId === userId)
+      .map((d, i) => ({ d, i }))
+      .sort(
+        (a, b) =>
+          b.d.createdAt.getTime() - a.d.createdAt.getTime() || b.i - a.i
+      )
+      .map(({ d }) => clone(d));
+  }
+
+  async updateDocumentStatus(
+    userId: string,
+    id: string,
+    status: DocumentStatus
+  ): Promise<Document | null> {
+    const doc = this.documents.get(id);
+    if (!doc || doc.userId !== userId) return null;
+    doc.status = status;
+    return clone(doc);
+  }
+
+  async deleteDocument(userId: string, id: string): Promise<boolean> {
+    const doc = this.documents.get(id);
+    if (!doc || doc.userId !== userId) return false;
+    this.files.delete(`${userId}:${doc.fileRef}`);
+    this.documents.delete(id);
+    // Delete related extractions and records
+    for (const [key, ext] of this.extractions) {
+      if (ext.userId === userId && ext.documentId === id) {
+        this.extractions.delete(key);
+      }
+    }
+    for (const [key, rec] of this.records) {
+      if (rec.userId === userId && rec.documentId === id) {
+        this.records.delete(key);
+      }
+    }
+    return true;
+  }
+
+  async findDocumentByChecksum(userId: string, checksum: string): Promise<Document | null> {
+    for (const doc of this.documents.values()) {
+      if (doc.userId === userId && doc.checksum === checksum) {
+        return clone(doc);
+      }
+    }
+    return null;
+  }
+
+  async storeFile(
+    userId: string,
+    fileRef: string,
+    bytes: Buffer,
+    mimeType: string,
+    fileName: string
+  ): Promise<void> {
+    this.files.set(`${userId}:${fileRef}`, {
+      userId,
+      bytes: Buffer.from(bytes),
+      mimeType,
+      fileName,
+    });
+  }
+
+  async getFile(userId: string, fileRef: string): Promise<StoredFile | null> {
+    const f = this.files.get(`${userId}:${fileRef}`);
+    if (!f) return null;
+    return { bytes: Buffer.from(f.bytes), mimeType: f.mimeType, fileName: f.fileName };
+  }
+
+  async createExtraction(input: CreateExtractionInput): Promise<Extraction> {
+    const ext: Extraction = {
+      id: randomUUID(),
+      userId: input.userId,
+      documentId: input.documentId,
+      documentType: input.documentType,
+      documentDateRaw: input.documentDateRaw,
+      documentDate: input.documentDate,
+      dateNeedsReview: input.dateNeedsReview ?? false,
+      fields: clone(input.fields),
+      ocrText: input.ocrText,
+      createdAt: new Date(),
+    };
+    this.extractions.set(ext.id, ext);
+    return clone(ext);
+  }
+
+  async getExtraction(userId: string, id: string): Promise<Extraction | null> {
+    const ext = this.extractions.get(id);
+    if (!ext || ext.userId !== userId) return null;
+    return clone(ext);
+  }
+
+  async getExtractionByDocument(
+    userId: string,
+    documentId: string
+  ): Promise<Extraction | null> {
+    for (const ext of this.extractions.values()) {
+      if (ext.userId === userId && ext.documentId === documentId) return clone(ext);
+    }
+    return null;
+  }
+
+  async updateExtractionFields(
+    userId: string,
+    id: string,
+    fields: ExtractedField[]
+  ): Promise<Extraction | null> {
+    const ext = this.extractions.get(id);
+    if (!ext || ext.userId !== userId) return null;
+    ext.fields = clone(fields);
+    return clone(ext);
+  }
+
+  async updateExtractionDate(
+    userId: string,
+    id: string,
+    documentDate: string | null,
+    dateNeedsReview: boolean
+  ): Promise<Extraction | null> {
+    const ext = this.extractions.get(id);
+    if (!ext || ext.userId !== userId) return null;
+    ext.documentDate = documentDate;
+    ext.dateNeedsReview = dateNeedsReview;
+    return clone(ext);
+  }
+
+  async createMedicalRecord(input: CreateMedicalRecordInput): Promise<MedicalRecord> {
+    const rec: MedicalRecord = {
+      id: randomUUID(),
+      userId: input.userId,
+      documentId: input.documentId,
+      recordType: input.recordType,
+      recordDate: input.recordDate,
+      observations: clone(input.observations),
+      medications: clone(input.medications),
+      confirmedAt: new Date(),
+    };
+    this.records.set(rec.id, rec);
+    return clone(rec);
+  }
+
+  async getMedicalRecord(
+    userId: string,
+    id: string
+  ): Promise<MedicalRecord | null> {
+    const rec = this.records.get(id);
+    if (!rec || rec.userId !== userId) return null;
+    return clone(rec);
+  }
+
+  async listMedicalRecords(
+    userId: string,
+    opts?: { from?: string; to?: string }
+  ): Promise<MedicalRecord[]> {
+    return [...this.records.values()]
+      .filter((r) => {
+        if (r.userId !== userId) return false;
+        if (opts?.from && (r.recordDate === null || r.recordDate < opts.from))
+          return false;
+        if (opts?.to && (r.recordDate === null || r.recordDate > opts.to))
+          return false;
+        return true;
+      })
+      .sort((a, b) => {
+        if (a.recordDate === null && b.recordDate === null) return 0;
+        if (a.recordDate === null) return 1;
+        if (b.recordDate === null) return -1;
+        if (a.recordDate !== b.recordDate)
+          return a.recordDate < b.recordDate ? -1 : 1;
+        return a.confirmedAt.getTime() - b.confirmedAt.getTime();
+      })
+      .map(clone);
+  }
+
+  async upsertWellnessEntry(
+    userId: string,
+    date: string,
+    data: WellnessUpsertInput
+  ): Promise<WellnessEntry> {
+    const key = `${userId}:${date}`;
+    const existing = this.wellness.get(key);
+    const entry: WellnessEntry = {
+      id: existing?.id ?? randomUUID(),
+      userId,
+      date,
+      sleepHours: "sleepHours" in data ? data.sleepHours ?? undefined : existing?.sleepHours,
+      waterGlasses: "waterGlasses" in data ? data.waterGlasses ?? undefined : existing?.waterGlasses,
+      activityMinutes: "activityMinutes" in data ? data.activityMinutes ?? undefined : existing?.activityMinutes,
+      energy: "energy" in data ? data.energy ?? undefined : existing?.energy,
+      symptomLevel: "symptomLevel" in data ? data.symptomLevel ?? undefined : existing?.symptomLevel,
+      symptoms: "symptoms" in data ? data.symptoms : existing?.symptoms,
+      note: "note" in data ? data.note ?? undefined : existing?.note,
+    };
+    this.wellness.set(key, entry);
+    return clone(entry);
+  }
+
+  async upsertDeviceReading(userId: string, date: string, input: ReadingInput): Promise<DeviceReading> {
+    const key = `${userId}:${date}:${input.kind}`;
+    const reading: DeviceReading = {
+      id: this.readings.get(key)?.id ?? randomUUID(),
+      userId,
+      date,
+      kind: input.kind,
+      value: input.value,
+      value2: input.value2,
+    };
+    this.readings.set(key, reading);
+    return clone(reading);
+  }
+
+  async listDeviceReadings(userId: string, opts: { from?: string; to?: string } = {}): Promise<DeviceReading[]> {
+    return [...this.readings.values()]
+      .filter((r) => r.userId === userId && (!opts.from || r.date >= opts.from) && (!opts.to || r.date <= opts.to))
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .map((r) => clone(r));
+  }
+
+  async deleteDeviceReading(userId: string, id: string): Promise<boolean> {
+    for (const [key, r] of this.readings) {
+      if (r.id === id && r.userId === userId) return this.readings.delete(key);
+    }
+    return false;
+  }
+
+  async listWellnessEntries(
+    userId: string,
+    from: string,
+    to: string
+  ): Promise<WellnessEntry[]> {
+    return [...this.wellness.values()]
+      .filter((w) => w.userId === userId && w.date >= from && w.date <= to)
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+      .map(clone);
+  }
+
+  async createHealthSummary(
+    input: CreateHealthSummaryInput
+  ): Promise<HealthSummary> {
+    let version = 0;
+    for (const s of this.summaries.values()) {
+      if (s.userId === input.userId && s.version > version) version = s.version;
+    }
+    const summary: HealthSummary = {
+      id: randomUUID(),
+      userId: input.userId,
+      version: version + 1,
+      generatedAt: new Date(),
+      coveredFrom: input.coveredFrom,
+      coveredTo: input.coveredTo,
+      payload: clone(input.payload),
+      sourceRecordIds: [...input.sourceRecordIds],
+      model: input.model,
+      isSample: input.isSample,
+    };
+    this.summaries.set(summary.id, summary);
+    return clone(summary);
+  }
+
+  async getHealthSummary(
+    userId: string,
+    id: string
+  ): Promise<HealthSummary | null> {
+    const s = this.summaries.get(id);
+    if (!s || s.userId !== userId) return null;
+    return clone(s);
+  }
+
+  async getLatestHealthSummary(userId: string): Promise<HealthSummary | null> {
+    let latest: HealthSummary | null = null;
+    for (const s of this.summaries.values()) {
+      if (s.userId !== userId) continue;
+      if (!latest || s.version > latest.version) latest = s;
+    }
+    return clone(latest);
+  }
+
+  async listHealthSummaries(userId: string): Promise<HealthSummary[]> {
+    return [...this.summaries.values()]
+      .filter((s) => s.userId === userId)
+      .map((d, i) => ({ d, i }))
+      .sort(
+        (a, b) =>
+          b.d.generatedAt.getTime() - a.d.generatedAt.getTime() || b.i - a.i
+      )
+      .map(({ d }) => clone(d));
+  }
+}
