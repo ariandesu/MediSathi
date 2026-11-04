@@ -32,6 +32,13 @@ export function Header({
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">
         <Link
           href="/"
+          onClick={(e) => {
+            // Full reload: the header/bottom-nav auth state comes from the
+            // server layout, and client-side nav would reuse the stale
+            // logged-out (or logged-in) shell instead of re-rendering it.
+            e.preventDefault();
+            window.location.href = "/";
+          }}
           className="flex min-h-12 shrink-0 items-center gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           <span className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
