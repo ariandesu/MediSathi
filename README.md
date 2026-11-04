@@ -40,63 +40,53 @@ Old URLs (`/documents`, `/timeline`, `/summary`, `/report`) redirect to the new 
 
 All fixture data is synthetic and clearly watermarked **"SAMPLE — NOT REAL PATIENT DATA"**.
 
-## Screenshots
+## Screens
 
-Bangla UI, desktop + mobile. All data shown is synthetic (`SAMPLE — NOT REAL PATIENT DATA`).
+Screenshots of the live site at https://medisathi-clean.vercel.app (Bangla interface), captured with headless Chrome on 4 November 2026. All data shown is synthetic (`SAMPLE — NOT REAL PATIENT DATA`).
 
-### Landing · Login · Sign up
+### Desktop
 
-| Landing (desktop) | Landing (mobile) |
-|---|---|
-| ![Landing page on desktop](docs/screenshots/desktop/01-landing.jpg) | ![Landing page on mobile](docs/screenshots/mobile/01-landing.jpg) |
+| Landing — plain-language pitch with a real sample paper | Login — 5 sample neighbors |
+| --- | --- |
+| [![Landing page with sample paper](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/landing.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/landing.jpg) | [![Login page with the five demo profiles](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/login.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/login.jpg) |
 
-| Login — 5 sample neighbors (desktop) | Login (mobile) |
-|---|---|
-| ![Login with demo profiles on desktop](docs/screenshots/desktop/02-login.jpg) | ![Login on mobile](docs/screenshots/mobile/02-login.jpg) |
+| Sign up | Home — next step, latest results, judge tour |
+| --- | --- |
+| [![Sign up page](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/signup.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/signup.jpg) | [![Home with next step and latest lab results](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/dashboard.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/dashboard.jpg) |
 
-| Sign up (desktop) | Sign up (mobile) |
-|---|---|
-| ![Sign up on desktop](docs/screenshots/desktop/03-signup.jpg) | ![Sign up on mobile](docs/screenshots/mobile/03-signup.jpg) |
+| Documents — sample files with status badges | Timeline — lab trends and merged entries |
+| --- | --- |
+| [![Documents library](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/records-documents.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/records-documents.jpg) | [![Timeline with trends and check-ins](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/records-timeline.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/records-timeline.jpg) |
 
-### Home · Records · Review
+**Review** — tap a value and it lights up on the paper; nothing saves until every value is checked:
 
-| Home (desktop) | Home (mobile) |
-|---|---|
-| ![Dashboard on desktop](docs/screenshots/desktop/04-dashboard.jpg) | ![Dashboard on mobile](docs/screenshots/mobile/04-dashboard.jpg) |
+[![Side-by-side review of a handwritten prescription](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/review.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/review.jpg)
 
-| Documents (desktop) | Documents (mobile) |
-|---|---|
-| ![Documents on desktop](docs/screenshots/desktop/05-records-documents.jpg) | ![Documents on mobile](docs/screenshots/mobile/05-records-documents.jpg) |
+| Daily check-in | Check-in saved |
+| --- | --- |
+| [![Daily check-in form](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/checkin.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/checkin.jpg) | [![Check-in confirmation](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/checkin-saved.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/checkin-saved.jpg) |
 
-| Timeline (desktop) | Timeline (mobile) |
-|---|---|
-| ![Timeline on desktop](docs/screenshots/desktop/06-records-timeline.jpg) | ![Timeline on mobile](docs/screenshots/mobile/06-records-timeline.jpg) |
+| Ask — grounded Q&A with cited records | Doctor report — print-ready, as-written values |
+| --- | --- |
+| [![Ask page with citations](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/ask.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/ask.jpg) | [![Doctor report](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/doctor-report.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/doctor-report.jpg) |
 
-| Side-by-side review (desktop) | Review (mobile) |
-|---|---|
-| ![Review page on desktop](docs/screenshots/desktop/07-review.jpg) | ![Review page on mobile](docs/screenshots/mobile/07-review.jpg) |
+| Health summary — observed changes with sources |
+| --- |
+| [![Source-linked health summary](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/doctor-summary.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/doctor-summary.jpg) |
 
-### Check-in · Ask · Doctor report
+### Mobile (390 × 844)
 
-| Check-in (desktop) | Check-in (mobile) |
-|---|---|
-| ![Check-in on desktop](docs/screenshots/desktop/08-checkin.jpg) | ![Check-in on mobile](docs/screenshots/mobile/08-checkin.jpg) |
+| Landing | Login | Sign up | Home |
+| --- | --- | --- | --- |
+| [![Mobile landing](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/landing-mobile.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/landing-mobile.jpg) | [![Mobile login](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/login-mobile.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/login-mobile.jpg) | [![Mobile sign up](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/signup-mobile.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/signup-mobile.jpg) | [![Mobile home](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/dashboard-mobile.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/dashboard-mobile.jpg) |
 
-| Check-in saved (desktop) | Check-in saved (mobile) |
-|---|---|
-| ![Check-in saved on desktop](docs/screenshots/desktop/09-checkin-saved.jpg) | ![Check-in saved on mobile](docs/screenshots/mobile/09-checkin-saved.jpg) |
+| Documents | Timeline | Review | Check-in |
+| --- | --- | --- | --- |
+| [![Mobile documents](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/records-documents-mobile.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/records-documents-mobile.jpg) | [![Mobile timeline](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/records-timeline-mobile.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/records-timeline-mobile.jpg) | [![Mobile review](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/review-mobile.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/review-mobile.jpg) | [![Mobile check-in](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/checkin-mobile.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/checkin-mobile.jpg) |
 
-| Ask (desktop) | Ask (mobile) |
-|---|---|
-| ![Ask on desktop](docs/screenshots/desktop/10-ask.jpg) | ![Ask on mobile](docs/screenshots/mobile/10-ask.jpg) |
-
-| Doctor report (desktop) | Doctor report (mobile) |
-|---|---|
-| ![Doctor report on desktop](docs/screenshots/desktop/11-doctor-report.jpg) | ![Doctor report on mobile](docs/screenshots/mobile/11-doctor-report.jpg) |
-
-| Health summary (desktop) | Health summary (mobile) |
-|---|---|
-| ![Health summary on desktop](docs/screenshots/desktop/12-doctor-summary.jpg) | ![Health summary on mobile](docs/screenshots/mobile/12-doctor-summary.jpg) |
+| Saved | Ask | Report | Summary |
+| --- | --- | --- | --- |
+| [![Mobile check-in saved](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/checkin-saved-mobile.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/checkin-saved-mobile.jpg) | [![Mobile ask](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/ask-mobile.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/ask-mobile.jpg) | [![Mobile doctor report](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/doctor-report-mobile.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/doctor-report-mobile.jpg) | [![Mobile health summary](https://github.com/ariandesu/MediSathi/raw/main/docs/screenshots/doctor-summary-mobile.jpg)](https://github.com/ariandesu/MediSathi/blob/main/docs/screenshots/doctor-summary-mobile.jpg) |
 
 ## Stack
 
